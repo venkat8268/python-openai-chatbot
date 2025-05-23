@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <link rel="stylesheet" href="../static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <h1>Your Mood Analyzer</h1>
+    <div class="chat-container">
+        <ul class="chat" id="chatbox">
+            <!-- Messages will be dynamically inserted here -->
+        </ul>
+        <input type="text" id="user-input" class="text_input" placeholder="Message..." onkeypress="sendMessage(event)">
+    </div>
+
+    <!-- Mood Statistics Chart -->
+    <h1>Sandeep Emotional Insights</h1>
+    <div class="chart-container">
+        <canvas id="moodChart"></canvas>
+    </div>
+
+    <script>
+        async function loadChatHistory() {
+            let response = await fetch("/history");
+            let data = await response.json();
+            let chatbox = document.getElementById("chatbox");
+            chatbox.innerHTML = '';
+
+            data.forEach(chat => {
+                chatbox.innerHTML += `
+                    <li class="message right">
+                        <img class="logo" src="{{ url_for('static', filename='karthik.jpg') }}" alt="">
+                        <p>${chat.user_message}</p>
+                    </li>
+                    <li class="message left">
+                        <img class="logo" src="https://images.pexels.com/photos/4269699/pexels-photo-4269699.jpeg?auto=compress&cs=tinysrgb&w=600" alt="">
+                        <p>${chat.bot_reply} <span class="mood">(${chat.mood})</span></p>
+                    </li>
+                `;
+            });
+
+            setTimeout(scrollToBottom, 100); // Delay to ensure DOM is updated
+        }
+
+        async function sendMessage(event) {
+            if (event.key === "Enter") {
+                let userInput = document.getElementById("user-input").value.trim();
+                if (!userInput) return;
+
+                setTimeout(scrollToBottom, 100);
+
+                let chatbox = document.getElementById("chatbox");
+                chatbox.innerHTML += `
+                    <li class="message right">
+                        <img class="logo" src="https://randomuser.me/api/portraits/men/67.jpg" alt="">
+                        <p>${userInput}</p>
+                    </li>`;
+                document.getElementById("user-input").value = "";
+
+                let response = await fetch("/chat", {
+                    method: "POST",
+                    body: JSON.stringify({ message: userInput }),
+                    headers: { "Content-Type": "application/json" }
+                });
+
+                let data = await response.json();
+                chatbox.innerHTML += `
+                    <li class="message left">
+                        <img class="logo" src="https://randomuser.me/api/portraits/women/17.jpg" alt="">
+                        <p>${data.reply} <span class="mood">(${data.mood})</span></p>
+                    </li>`;
+
+                setTimeout(scrollToBottom, 100);
+            }
+        }
+
+        async function loadMoodChart() {
+            let response = await fetch("/mood-stats");
+            let moodData = await response.json();
+            let ctx = document.getElementById("moodChart").getContext("2d");
+
+            if (window.moodChart instanceof Chart) {
+                window.moodChart.destroy();
+            }
+
+            let days = Object.keys(moodData).sort();
+            let moods = ["Happy 😊", "Sad 😔", "Angry 😡", "Anxious 😰", "Neutral 😐"];
+
+            let datasets = moods.map((mood, index) => ({
+                label: mood,
+                data: days.map(day => moodData[day]?.[mood] || 0),
+                backgroundColor: ["#4CAF50", "#2196F3", "#FF9800", "#F44336", "#9E9E9E"][index]
+            }));
+
+            window.moodChart = new Chart(ctx, {
+                type: "line",
+                data: { labels: days, datasets: datasets },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        function scrollToBottom() {
+            let chatContainer = document.querySelector(".chat-container");
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            } else {
+                console.log('not scrolling');
+
+            }
+        }
+
+        window.onload = function () {
+            loadChatHistory();
+            loadMoodChart();
+            setTimeout(scrollToBottom, 100);
+        };
+    </script>
+
+</body>
+
+</html>
